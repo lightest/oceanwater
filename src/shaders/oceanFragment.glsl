@@ -1,4 +1,5 @@
 uniform float uT;
+varying vec3 vPos;
 
 void main ()
 {
