@@ -6,6 +6,7 @@ import GUI from "lil-gui";
 // Shaders.
 import OceanSurfaceVert from "./shaders/oceanVertex.glsl";
 import OceanSurfaceFrag from "./shaders/oceanFragment.glsl";
+import { GerstnerWaveParams } from "./interfaces";
 
 let scene: THREE.Scene, camera: THREE.Camera;
 let renderer: THREE.WebGLRenderer;
@@ -25,8 +26,47 @@ const debugParams = {
     uPositionScale: 100.0,
 };
 
+let gerstnerWaveParams: GerstnerWaveParams[] = [];
+let gerstnerWaveParamsBuffer: Float32Array;
+
+function generateGerstnerWaveParams(amount: number = 1)
+{
+    const params:GerstnerWaveParams[] = [];
+
+    for (let i = 0; i < amount; i++)
+    {
+        params.push(new GerstnerWaveParams());
+    }
+
+    return params;
+}
+
+function getGerstnerWaveParamsAsFloat32Array(params: GerstnerWaveParams[], buffer: Float32Array)
+{
+    let offset = 0;
+
+    for (let i = 0; i < params.length; i++)
+    {
+        // Order has to match the one defined in the shader.
+        buffer[offset] = params[i].lambda;
+        buffer[offset + 1] = params[i].waveVectorX;
+        buffer[offset + 2] = params[i].waveVectorY;
+        buffer[offset + 3] = params[i].amplitude;
+        buffer[offset + 4] = params[i].omega;
+        buffer[offset + 5] = params[i].phase;
+        offset += 6;
+    }
+
+    return buffer;
+}
+
 function setupScene()
 {
+    // Amount has to match the one defined in the shader.
+    const paramsAmount = 5;
+    gerstnerWaveParams = generateGerstnerWaveParams(paramsAmount);
+    gerstnerWaveParamsBuffer = new Float32Array(paramsAmount * GerstnerWaveParams.FLOAT_PARAMS);
+    getGerstnerWaveParamsAsFloat32Array(gerstnerWaveParams, gerstnerWaveParamsBuffer);
     const planeGeometry = new THREE.PlaneGeometry(1, 1, 256, 256);
     oceanMaterial = new THREE.ShaderMaterial({
         vertexShader: OceanSurfaceVert,
@@ -37,7 +77,8 @@ function setupScene()
             uWaveVector: { value: new Float32Array([debugParams.uWaveVectorX, debugParams.uWaveVectorY]) },
             uAmplitude: { value: debugParams.uAmplitude },
             uOmega: { value: debugParams.uOmega },
-            uPositionScale: { value: debugParams.uPositionScale }
+            uPositionScale: { value: debugParams.uPositionScale },
+            uGerstnerWaveParams: { value: gerstnerWaveParamsBuffer }
         }
     });
     oceanMaterial.wireframe = debugParams.isOceanMeshWireframe;
@@ -60,12 +101,19 @@ function setupGui()
         window.exposed.oceanMesh.material.wireframe = v;
     });
 
-    gui.add(debugParams, "uLambda", 0.1, 128, 0.01);
-    gui.add(debugParams, "uAmplitude", 0.0, 1, 0.001);
-    gui.add(debugParams, "uOmega", 0.0, 128, 0.01);
     gui.add(debugParams, "uPositionScale", 1.0, 1024.0, 1.0);
-    gui.add(debugParams, "uWaveVectorX", 0, 1.0, 0.001);
-    gui.add(debugParams, "uWaveVectorY", 0, 1.0, 0.001);
+
+    for (let i = 0; i < gerstnerWaveParams.length; i++)
+    {
+        const f = gui.addFolder(`Gerstner Wave ${i}`);
+        f.add(gerstnerWaveParams[i], "lambda", 0.1, 128, 0.001);
+        f.add(gerstnerWaveParams[i], "waveVectorX", 0, 1.0, 0.001);
+        f.add(gerstnerWaveParams[i], "waveVectorY", 0, 1.0, 0.001);
+        f.add(gerstnerWaveParams[i], "amplitude", 0.0, 1, 0.001);
+        f.add(gerstnerWaveParams[i], "omega", 0.0, 128, 0.001);
+        f.add(gerstnerWaveParams[i], "phase", 0.0, 128, 0.001);
+    }
+
 }
 
 function applyUniforms()
@@ -80,6 +128,7 @@ function applyUniforms()
 
     oceanMaterial.uniforms.uWaveVector.value[0] = debugParams.uWaveVectorX;
     oceanMaterial.uniforms.uWaveVector.value[1] = debugParams.uWaveVectorY;
+    getGerstnerWaveParamsAsFloat32Array(gerstnerWaveParams, gerstnerWaveParamsBuffer);
 }
 
 function handleResize()
