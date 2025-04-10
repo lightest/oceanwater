@@ -16,11 +16,7 @@ let oceanMaterial: THREE.ShaderMaterial
 const gui = new GUI();
 const debugParams = {
     isOceanMeshWireframe: true,
-    uLambda: 7.0,
-    uWaveVectorX: 1.0,
-    uWaveVectorY: 0.0,
-    uAmplitude: 0.01,
-    uOmega: 1.0,
+    uRepeatPeriod: 1.0,
 
     // TODO: potentially can be replaced with mesh grid size.
     uPositionScale: 100.0,
@@ -73,11 +69,8 @@ function setupScene()
         fragmentShader: OceanSurfaceFrag,
         uniforms: {
             uT: { value: 0.01 },
-            uLambda: { value: debugParams.uLambda },
-            uWaveVector: { value: new Float32Array([debugParams.uWaveVectorX, debugParams.uWaveVectorY]) },
-            uAmplitude: { value: debugParams.uAmplitude },
-            uOmega: { value: debugParams.uOmega },
             uPositionScale: { value: debugParams.uPositionScale },
+            uRepeatPeriod: { value: 1.0 },
             uGerstnerWaveParams: { value: gerstnerWaveParamsBuffer }
         }
     });
@@ -102,6 +95,7 @@ function setupGui()
     });
 
     gui.add(debugParams, "uPositionScale", 1.0, 1024.0, 1.0);
+    gui.add(debugParams, "uRepeatPeriod", 1.0, 1024.0, 1.0);
 
     for (let i = 0; i < gerstnerWaveParams.length; i++)
     {
@@ -126,8 +120,6 @@ function applyUniforms()
         }
     }
 
-    oceanMaterial.uniforms.uWaveVector.value[0] = debugParams.uWaveVectorX;
-    oceanMaterial.uniforms.uWaveVector.value[1] = debugParams.uWaveVectorY;
     getGerstnerWaveParamsAsFloat32Array(gerstnerWaveParams, gerstnerWaveParamsBuffer);
 }
 

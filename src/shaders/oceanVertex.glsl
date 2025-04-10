@@ -4,6 +4,7 @@ uniform vec2 uWaveVector;
 uniform float uAmplitude;
 uniform float uOmega;
 uniform float uPositionScale;
+uniform float uRepeatPeriod;
 
 // struct GerstnerWaveParams {
 //     float lambda;
@@ -20,12 +21,14 @@ varying vec3 vPos;
 
 const float PI = 3.1415926535;
 const float PI2 = 2.0 * PI;
+const float g = 9.8;
 
 void main()
 {
     vec3 scaledPos = position * uPositionScale;
     vec2 xy = vec2(0.0);
     float z = 0.0;
+    float omegaInitial = PI2 / uRepeatPeriod;
 
     // for (int i = 0; i < 5; i++)
     // {
@@ -45,7 +48,8 @@ void main()
         float waveVectorMag = PI2 / lambda;
         vec2 waveVector = normalize(vec2(uGerstnerWaveParams[i + 1], uGerstnerWaveParams[i + 2])) * waveVectorMag;
         float amplitude = uGerstnerWaveParams[i + 3];
-        float omega = uGerstnerWaveParams[i + 4];
+        // float omega = uGerstnerWaveParams[i + 4];
+        float omega = floor(sqrt(g * waveVectorMag) / omegaInitial) * omegaInitial;
         float phase = uGerstnerWaveParams[i + 5];
         xy += position.xy - waveVector / waveVectorMag * amplitude * sin(dot(waveVector, scaledPos.xy) - omega * uT + phase);
         z += amplitude * cos(dot(waveVector, scaledPos.xy) - omega * uT + phase);
