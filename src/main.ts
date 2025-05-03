@@ -4,9 +4,9 @@ import { OrbitControls } from "three/examples/jsm/Addons.js";
 import GUI from "lil-gui";
 
 // Shaders.
-import OceanSurfaceVert from "./shaders/oceanVertex.glsl";
+import OceanSurfaceVert from "./shaders/oceanVertexGerstner.glsl";
 import OceanSurfaceFrag from "./shaders/oceanFragment.glsl";
-import { GerstnerWaveParams } from "./interfaces";
+import { FFTWaveParams, GerstnerWaveParams } from "./interfaces";
 
 let scene: THREE.Scene, camera: THREE.Camera;
 let renderer: THREE.WebGLRenderer;
@@ -37,7 +37,19 @@ function generateGerstnerWaveParams(amount: number = 1)
     return params;
 }
 
-function getGerstnerWaveParamsAsFloat32Array(params: GerstnerWaveParams[], buffer: Float32Array)
+function generateFFTWaveParams(amount: number = 1)
+{
+    const params: FFTWaveParams[] = [];
+
+    for (let i = 0; i < amount; i++)
+    {
+        params.push(new FFTWaveParams());
+    }
+
+    return params;
+}
+
+function fillGerstnerWaveParamsBuffer(params: GerstnerWaveParams[], buffer: Float32Array)
 {
     let offset = 0;
 
@@ -56,15 +68,33 @@ function getGerstnerWaveParamsAsFloat32Array(params: GerstnerWaveParams[], buffe
     return buffer;
 }
 
-function setupScene()
+function fillFFTWaveParamsBuffer(params: FFTWaveParams[], buffer: Float32Array)
+{
+    let offset = 0;
+
+    for (let i = 0; i < params.length; i++)
+    {
+        buffer[offset] = params[i].amplitude;
+        buffer[offset + 1] = params[i].lambda;
+        buffer[offset + 2] = params[i].waveVectorX;
+        buffer[offset + 3] = params[i].waveVectorY;
+        buffer[offset + 4] = params[i].windSpeed;
+        buffer[offset + 5] = params[i].windDirectionX;
+        buffer[offset + 6] = params[i].windDirectionY;
+        offset += FFTWaveParams.FLOAT_PARAMS;
+    }
+
+    return buffer;
+}
+
+function setupGerstnerWave()
 {
     // Amount has to match the one defined in the shader.
     const paramsAmount = 5;
     gerstnerWaveParams = generateGerstnerWaveParams(paramsAmount);
     gerstnerWaveParamsBuffer = new Float32Array(paramsAmount * GerstnerWaveParams.FLOAT_PARAMS);
-    getGerstnerWaveParamsAsFloat32Array(gerstnerWaveParams, gerstnerWaveParamsBuffer);
-    const planeGeometry = new THREE.PlaneGeometry(1, 1, 256, 256);
-    oceanMaterial = new THREE.ShaderMaterial({
+    fillGerstnerWaveParamsBuffer(gerstnerWaveParams, gerstnerWaveParamsBuffer);
+    const oceanMaterial = new THREE.ShaderMaterial({
         vertexShader: OceanSurfaceVert,
         fragmentShader: OceanSurfaceFrag,
         uniforms: {
@@ -74,6 +104,36 @@ function setupScene()
             uGerstnerWaveParams: { value: gerstnerWaveParamsBuffer }
         }
     });
+
+    return oceanMaterial;
+}
+
+function setupFFTWave()
+{
+    // Amount has to match the one defined in the shader.
+    const paramsAmount = 1;
+    const fftWaveParams = generateFFTWaveParams(paramsAmount);
+    const fftWaveParamsBuffer = new Float32Array(paramsAmount * GerstnerWaveParams.FLOAT_PARAMS);
+    fillFFTWaveParamsBuffer(fftWaveParams, fftWaveParamsBuffer);
+    const oceanMaterial = new THREE.ShaderMaterial({
+        vertexShader: OceanSurfaceVert,
+        fragmentShader: OceanSurfaceFrag,
+        uniforms: {
+            uT: { value: 0.01 },
+            uPositionScale: { value: debugParams.uPositionScale },
+            uRepeatPeriod: { value: 1.0 },
+            uFFTWaveParams: { value: fftWaveParamsBuffer }
+        }
+    });
+
+    return oceanMaterial;
+}
+
+function setupScene()
+{
+
+    const planeGeometry = new THREE.PlaneGeometry(1, 1, 256, 256);
+    oceanMaterial = setupFFTWave();
     oceanMaterial.wireframe = debugParams.isOceanMeshWireframe;
     const mesh = new THREE.Mesh(planeGeometry, oceanMaterial);
     mesh.rotation.set(-Math.PI * 0.5, 0, 0);
@@ -120,7 +180,7 @@ function applyUniforms()
         }
     }
 
-    getGerstnerWaveParamsAsFloat32Array(gerstnerWaveParams, gerstnerWaveParamsBuffer);
+    fillGerstnerWaveParamsBuffer(gerstnerWaveParams, gerstnerWaveParamsBuffer);
 }
 
 function handleResize()
